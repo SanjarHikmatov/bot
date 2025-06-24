@@ -1,0 +1,83 @@
+version: '3.8'
+
+networks:
+  telegram-shop-network:
+    driver: bridge
+
+services:
+  db:
+    image: postgres:15
+    container_name: telegram_shop_db
+    environment:
+      POSTGRES_DB: telegram_shop
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - telegram-shop-network
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: telegram_shop_redis
+    command: redis-server /usr/local/etc/redis/redis.conf
+    volumes:
+      - ./redis.conf:/usr/local/etc/redis/redis.conf
+    networks:
+      - telegram-shop-network
+
+  web:
+    build: .
+    container_name: telegram_shop_web
+    command: >
+      sh -c "
+        python manage.py makemigrations &&
+        python manage.py migrate &&
+        python manage.py collectstatic --noinput &&
+        python manage.py runserver 0.0.0.0:8000
+      "
+
+    volumes:
+      - .:/app
+      - media_volume:/app/media
+      - static_volume:/app/staticfiles
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - telegram-shop-network
+    env_file:
+      - .env
+
+  bot:
+    build: .
+    container_name: telegram_shop_bot
+    command: sh -c "python manage.py run_bot"
+    volumes:
+      - .:/app
+      - media_volume:/app/media
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      web:
+        condition: service_started
+    networks:
+      - telegram-shop-network
+    env_file:
+      - .env
+volumes:
+  postgres_data:
+  media_volume:
+  static_volume:

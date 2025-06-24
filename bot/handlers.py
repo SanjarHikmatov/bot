@@ -4,7 +4,7 @@ from django.contrib.auth import get_user_model
 from shop.models import Category, Product, ProductColor, Cart, Order, OrderItem
 from .utils import get_text, create_main_keyboard, create_categories_keyboard, create_products_keyboard
 import logging
-
+from django.conf import settings
 User = get_user_model()
 logger = logging.getLogger(__name__)
 
@@ -167,7 +167,6 @@ def product_callback(update, context):
         query.edit_message_text(get_text('error_user_not_found', 'uz'))
 
 def color_callback(update, context):
-    """Handle color selection and add to cart"""
     query = update.callback_query
     query.answer()
 
@@ -202,12 +201,27 @@ def color_callback(update, context):
             price=color.price
         )
 
-        query.edit_message_text(text, reply_markup=reply_markup)
+        # Rangga xos rasmni olish
+        color_image = color.images.first()
+        if color_image:
+            image_url = f"{settings.SITE_URL}{color_image.image.url}"
+            try:
+                query.message.reply_photo(
+                    photo=image_url,
+                    caption=text,
+                    parse_mode='Markdown',
+                    reply_markup=reply_markup
+                )
+            except Exception as e:
+                logger.error(f"Rang rasmini yuborishda xato (color {color.id}): {str(e)}")
+                query.message.reply_text(text, parse_mode='Markdown', reply_markup=reply_markup)
+        else:
+            query.message.reply_text(text, parse_mode='Markdown', reply_markup=reply_markup)
 
     except (ProductColor.DoesNotExist, ValueError, IndexError):
-        query.edit_message_text(get_text('error_color_not_found', 'uz'))
+        query.message.reply_text(get_text('error_color_not_found', 'uz'), parse_mode='Markdown')
     except User.DoesNotExist:
-        query.edit_message_text(get_text('error_user_not_found', 'uz'))
+        query.message.reply_text(get_text('error_user_not_found', 'uz'), parse_mode='Markdown')
 
 def cart_handler(update, context):
     """Show cart contents"""
@@ -311,6 +325,7 @@ def place_order_callback(update, context):
                     price=cart_item.product_color.price
                 )
 
+            # Clear cart
             cart_items.delete()
 
             text = get_text('order_created', language).format(

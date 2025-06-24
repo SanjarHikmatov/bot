@@ -10,6 +10,7 @@ from bot.handlers import (
 )
 from bot.utils import get_text
 
+# Enable logging
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
@@ -28,11 +29,14 @@ class Command(BaseCommand):
             )
             return
 
+        # Create updater
         updater = Updater(settings.TELEGRAM_BOT_TOKEN, use_context=True)
         dispatcher = updater.dispatcher
 
+        # Add handlers
         dispatcher.add_handler(CommandHandler("start", start))
 
+        # Message handlers
         dispatcher.add_handler(MessageHandler(Filters.contact, contact_handler))
         dispatcher.add_handler(MessageHandler(
             Filters.regex(f"^({get_text('categories', 'uz')}|{get_text('categories', 'ru')})$"),
@@ -60,5 +64,6 @@ class Command(BaseCommand):
             self.style.SUCCESS('Bot started successfully!')
         )
 
+        # Run the bot
         updater.start_polling()
         updater.idle()

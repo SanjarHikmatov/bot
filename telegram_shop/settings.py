@@ -53,7 +53,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'telegram_shop.wsgi.application'
-
+SITE_URL = 'http://localhost:8000'
 # Database
 DATABASES = {
     'default': {
